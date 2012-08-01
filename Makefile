@@ -1,8 +1,8 @@
 VERSION = 3
 PATCHLEVEL = 1
 SUBLEVEL = 9
-EXTRAVERSION =
-NAME = "Divemaster Edition"
+EXTRAVERSION = adafruit
+NAME = "Adafruit Learning Distro"
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
