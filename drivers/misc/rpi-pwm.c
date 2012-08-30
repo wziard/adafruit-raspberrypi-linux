@@ -221,7 +221,8 @@ static int rpi_pwm_activate(struct rpi_pwm *dev) {
 
 
 static int rpi_pwm_deactivate(struct rpi_pwm *dev) {
-	__raw_writel(0, PWM_CTL);
+	if (dev->mode != MODE_AUDIO)
+		__raw_writel(0, PWM_CTL);
 	udelay(10);
 	SET_GPIO_ALT(18, 0);
 	udelay(10);
@@ -304,8 +305,18 @@ static ssize_t mode_store(struct device *d,
 				 device_mode_str[offset],
 				 strlen(device_mode_str[offset]))) {
 			dev->mode = offset;
+
 			if (dev->immediate)
 				rpi_pwm_activate(dev);
+
+			/* If switching to audio mode, switch out of
+			 * immediate mode.  This protects us from locking
+			 * up the audio system by altering PWM values while
+			 * audio playback is occurring.
+			 */
+			if (offset == MODE_AUDIO)
+				dev->immediate = 0;
+
 			ret = 0;
 			break;
 		}
