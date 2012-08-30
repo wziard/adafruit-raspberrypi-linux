@@ -500,6 +500,16 @@ config USB_SWITCH_FSA9480
 	  stereo and mono audio, video, microphone and UART data to use
 	  a common connector port.
 
+config RPI_PWM
+	tristate "Raspberry Pi PWM driver"
+	depends on EXPERIMENTAL && MACH_BCM2708
+	default m
+	help
+	  The Raspberry Pi has a single PWM pin broken out on pin 12 of its
+	  expansion port.  This driver will turn that pin from a GPIO into a
+	  PWM, and will export a sysfs directory, /sys/devices/platform/pwm,
+	  to allow for control over the PWM output.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -508,5 +518,7 @@ source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
 source "drivers/misc/vc04_services/Kconfig"
+
+
 
 endif # MISC_DEVICES
