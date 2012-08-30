@@ -579,6 +579,34 @@ static struct platform_device bcm2708_pwm_device = {
 	.id = 0,
 };
 
+
+#include <linux/input.h>
+#include <linux/rotary_encoder.h>
+
+#define GPIO_ROTARY_A 23
+#define GPIO_ROTARY_B 24
+
+static struct rotary_encoder_platform_data my_rotary_encoder_info = {
+        .steps          = 24,
+        .axis           = ABS_X,
+        .relative_axis  = false,
+        .rollover       = false,
+        .gpio_a         = GPIO_ROTARY_A,
+        .gpio_b         = GPIO_ROTARY_B,
+        .inverted_a     = 0,
+        .inverted_b     = 0,
+        .half_period    = false,
+};
+
+static struct platform_device rotary_encoder_device = {
+        .name           = "rotary-encoder",
+        .id             = 0,
+        .dev            = {
+                .platform_data = &my_rotary_encoder_info,
+        }
+};
+
+
 int __init bcm_register_device(struct platform_device *pdev)
 {
 	int ret;
@@ -639,6 +667,7 @@ void __init bcm2708_init(void)
 	bcm_register_device(&bcm2708_bsc1_device);
 
 	bcm_register_device(&bcm2708_pwm_device);
+	bcm_register_device(&rotary_encoder_device);
 
 #ifdef CONFIG_BCM2708_VCMEM
 	{
