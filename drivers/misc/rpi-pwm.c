@@ -66,7 +66,8 @@ static char *device_mode_str[] = {
 struct rpi_pwm {
 	u32 duty;
 	u32 frequency;
-	u32 degrees;
+	u32 servo_val;
+	u32 servo_max;
 	int active:1;
 	int immediate:1;
 	int loaded:1;
@@ -84,13 +85,14 @@ static struct rpi_pwm pwms[] = {
 	{
 		.immediate	= 1,
 		.duty		= 50,
+		.servo_max	= 32,
 		.mcf		= 16000,  /* 16 kHz is a good common number */
 	},
 };
 
 
 /* Sets the system timer to have the new divisor */
-static int rpi_pwm_set_clk(struct rpi_pwm *dev) {
+static int rpi_pwm_set_clk(struct rpi_pwm *dev, u32 mcf) {
 	/* Stop clock and waiting for busy flag doesn't work, so kill clock */
 	__raw_writel(0x5A000000 | (1 << 5), PWMCLK_CNTL);
 	udelay(10);  
@@ -106,7 +108,7 @@ static int rpi_pwm_set_clk(struct rpi_pwm *dev) {
 	 * output frequency, bad for servo motors
 	 * 320 bits for one cycle of 20 milliseconds = 62.5 us per bit = 16 kHz
 	 */
-	dev->divisor = 19200000 / dev->mcf;
+	dev->divisor = 19200000 / mcf;
 	if (dev->divisor < 1 || dev->divisor > 0x1000) {
 		dev_err(dev->dev, "divisor out of range: %x\n", dev->divisor);
 		return -ERANGE;
@@ -124,91 +126,91 @@ static int rpi_pwm_set_clk(struct rpi_pwm *dev) {
 
 
 static int rpi_pwm_set_servo(struct rpi_pwm *dev) {
-	int degrees = dev->degrees;
-	int bitCount;
+	unsigned long RNG, DAT;
+	unsigned long mcf = 16000, frequency=50;
 	int ret;
-	unsigned int bits = 0;
 
-	dev->mcf = 16000;	/* 16 kHz works well for servos */
-	ret = rpi_pwm_set_clk(dev);
+	/* Disable PWM */
+	__raw_writel(0, PWM_CTL);
+
+	/* Wait for the PWM to be disabled, otherwise PWM block hangs */
+	udelay(10);
+
+	ret = rpi_pwm_set_clk(dev, mcf);
 	if (ret)
 		return ret;
 
-	/* disable PWM */
-	__raw_writel(0, PWM_CTL);
-	
-	/* Wait for the PWM to be disabled, otherwise PWM block hangs */
-	udelay(10);
-	
-	/* Filled with 0 for 20 milliseconds = 320 bits */
-	__raw_writel(320, PWM_RNG1);
-	
-	dev_dbg(dev->dev, "Setting angle to %d degrees\n", degrees);
-	/* 32 bits = 2 milliseconds */
-	bitCount = 16 + 16 * degrees / 360;
-	if (bitCount > 32)
-		bitCount = 32;
-	if (bitCount < 1)
-		bitCount = 1;
-	bits = 0;
-	while (bitCount) {
-		bits <<= 1;
-		bits |= 1;
-		bitCount--;
+	RNG = mcf/frequency;
+	DAT = (mcf*2*dev->servo_val/dev->servo_max/frequency/20)
+	    + (mcf/frequency/40);
+
+	if (RNG < 1) {
+		dev_err(dev->dev, "RNG is out of range: %ld<1\n", RNG);
+		return -ERANGE;
 	}
-	
-	/* Start PWM1 in serializer mode */
-	__raw_writel(3, PWM_CTL);
-	__raw_writel(bits, PWM_DAT1);
+
+	if (DAT < 1) {
+		dev_err(dev->dev, "DAT is out of range: %ld<1\n", DAT);
+		return -ERANGE;
+	}
+
+	__raw_writel(RNG, PWM_RNG1);
+	__raw_writel(DAT, PWM_DAT1);
+
+	/* Enable MSEN mode, and start PWM */
+	__raw_writel(0x81, PWM_CTL);
 
 	return 0;
 }
 
 
+static int rpi_pwm_set_frequency(struct rpi_pwm *dev) {
+	unsigned long RNG, DAT;
+	int ret;
+	/* Disable PWM */
+	__raw_writel(0, PWM_CTL);
+
+	/* Wait for the PWM to be disabled, otherwise PWM block hangs */
+	udelay(10);
+
+	ret = rpi_pwm_set_clk(dev, dev->mcf);
+	if (ret)
+		return ret;
+
+	RNG = dev->mcf/dev->frequency;
+	DAT = RNG*dev->duty/100;
+
+	if (RNG < 1) {
+		dev_err(dev->dev, "RNG is out of range: %ld<1\n", RNG);
+		return -ERANGE;
+	}
+
+	if (DAT < 1) {
+		dev_err(dev->dev, "DAT is out of range: %ld<1\n", DAT);
+		return -ERANGE;
+	}
+
+	__raw_writel(RNG, PWM_RNG1);
+	__raw_writel(DAT, PWM_DAT1);
+
+	/* Enable MSEN mode, and start PWM */
+	__raw_writel(0x81, PWM_CTL);
+
+	return 0;
+}
+
 
 static int rpi_pwm_activate(struct rpi_pwm *dev) {
-	int ret;
+	int ret = 0;
 
 	/* Set PWM alternate function for GPIO18 */
 	SET_GPIO_ALT(18, 5);
 
-	if (dev->mode == MODE_SERVO) {
+	if (dev->mode == MODE_SERVO)
 		ret = rpi_pwm_set_servo(dev);
-		if (ret)
-			return ret;
-	}
 
-	else if (dev->mode == MODE_PWM) {
-		unsigned long RNG, DAT;
-		/* Disable PWM */
-		__raw_writel(0, PWM_CTL);
-	
-		/* Wait for the PWM to be disabled, otherwise PWM block hangs */
-		udelay(10);
-
-		ret = rpi_pwm_set_clk(dev);
-		if (ret)
-			return ret;
-
-		RNG = dev->mcf/dev->frequency;
-		DAT = RNG*dev->duty/100;
-
-		if (RNG < 1) {
-			dev_err(dev->dev, "RNG is out of range: %ld<1\n", RNG);
-			return -ERANGE;
-		}
-
-		if (DAT < 1) {
-			dev_err(dev->dev, "DAT is out of range: %ld<1\n", DAT);
-			return -ERANGE;
-		}
-
-		__raw_writel(RNG, PWM_RNG1);
-		__raw_writel(DAT, PWM_DAT1);
-
-		/* Enable MSEN mode, and start PWM */
-		__raw_writel(0x81, PWM_CTL);
-	}
+	else if (dev->mode == MODE_PWM)
+		ret = rpi_pwm_set_frequency(dev);
 
 	else if (dev->mode == MODE_AUDIO) {
 		/* Nothing to do */
@@ -216,7 +218,7 @@ static int rpi_pwm_activate(struct rpi_pwm *dev) {
 	}
 
 	dev->active = 1;
-	return 0;
+	return ret;
 }
 
 
@@ -426,29 +428,29 @@ static DEVICE_ATTR(real_frequency, 0666, real_freq_show, NULL);
 
 
 
-static ssize_t degrees_show(struct device *d,
+static ssize_t servo_val_show(struct device *d,
 		struct device_attribute *attr, char *buf)
 {
 	ssize_t ret;
 	struct rpi_pwm *dev = dev_get_drvdata(d);
 	mutex_lock(&sysfs_lock);
-	ret = sprintf(buf, "%d%%\n", dev->degrees);
+	ret = sprintf(buf, "%d\n", dev->servo_val);
 	mutex_unlock(&sysfs_lock);
 	return ret;
 }
 
-static ssize_t degrees_store(struct device *d,
+static ssize_t servo_val_store(struct device *d,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	ssize_t ret = 0;
-	long new_degrees;
+	long new_servo_val;
 	struct rpi_pwm *dev = dev_get_drvdata(d);
 
 	mutex_lock(&sysfs_lock);
-	ret = strict_strtol(buf, 0, &new_degrees);
+	ret = strict_strtol(buf, 0, &new_servo_val);
 	if (ret == 0) {
-		if (new_degrees >= 0 && new_degrees <= 360) {
-			dev->degrees = new_degrees;
+		if (new_servo_val >= 0 && new_servo_val <= dev->servo_max) {
+			dev->servo_val = new_servo_val;
 			dev->mode = MODE_SERVO;
 			if (dev->immediate)
 				rpi_pwm_activate(dev);
@@ -459,7 +461,48 @@ static ssize_t degrees_store(struct device *d,
 	mutex_unlock(&sysfs_lock);
 	return ret?ret:count;
 }
-static DEVICE_ATTR(degrees, 0666, degrees_show, degrees_store);
+static DEVICE_ATTR(servo, 0666, servo_val_show, servo_val_store);
+
+
+
+static ssize_t servo_max_show(struct device *d,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct rpi_pwm *dev = dev_get_drvdata(d);
+	mutex_lock(&sysfs_lock);
+	ret = sprintf(buf, "%d\n", dev->servo_max);
+	mutex_unlock(&sysfs_lock);
+	return ret;
+}
+
+static ssize_t servo_max_store(struct device *d,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = 0;
+	long new_servo_max;
+	struct rpi_pwm *dev = dev_get_drvdata(d);
+
+	mutex_lock(&sysfs_lock);
+	ret = strict_strtol(buf, 0, &new_servo_max);
+	if (ret == 0) {
+		if (new_servo_max > 0) {
+			/* Scale the rotation to match new max */
+			dev->servo_val = dev->servo_val
+				       *new_servo_max / dev->servo_max;
+
+			dev->servo_max = new_servo_max;
+			dev->mode = MODE_SERVO;
+			if (dev->immediate)
+				rpi_pwm_activate(dev);
+		}
+		else
+			ret = -ERANGE;
+	}
+	mutex_unlock(&sysfs_lock);
+	return ret?ret:count;
+}
+static DEVICE_ATTR(servo_max, 0666, servo_max_show, servo_max_store);
 
 
 
@@ -532,7 +575,8 @@ static DEVICE_ATTR(delayed, 0666, delayed_show, delayed_store);
 static struct attribute *rpi_pwm_sysfs_entries[] = {
 	&dev_attr_active.attr,
 	&dev_attr_delayed.attr,
-	&dev_attr_degrees.attr,
+	&dev_attr_servo.attr,
+	&dev_attr_servo_max.attr,
 	&dev_attr_duty.attr,
 	&dev_attr_mode.attr,
 	&dev_attr_mcf.attr,
