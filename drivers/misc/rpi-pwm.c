@@ -7,6 +7,8 @@
  *
  * It tends to have problems locking on to frequencies above 100 kHz, and
  * with indivisible duty cycles.
+ *
+ * - Written by Sean Cross for Adafruit Industries (www.adafruit.com)
  */
 
 #define RPI_PWM_VERSION "1.0"
@@ -601,7 +603,7 @@ int __init rpi_pwm_init(void)
 	int ret = 0;
 	int pwm = 0;
 
-	pr_info("Raspberry Pi PWM driver v%s\n", RPI_PWM_VERSION);
+	pr_info("Adafruit Industries' Raspberry Pi PWM driver v%s\n", RPI_PWM_VERSION);
 
 	ret = class_register(&pwm_class);
 	if (ret < 0) {
@@ -678,5 +680,5 @@ void __exit rpi_pwm_cleanup(void)
 module_init(rpi_pwm_init);
 module_exit(rpi_pwm_cleanup);
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Sean Cross <xobs@xoblo.gs>");
+MODULE_AUTHOR("Sean Cross <xobs@xoblo.gs> for Adafruit Industries <www.adafruit.com>");
 MODULE_ALIAS("platform:bcm2708_pwm");
