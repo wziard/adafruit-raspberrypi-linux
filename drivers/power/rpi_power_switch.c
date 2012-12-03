@@ -6,7 +6,7 @@
  * - Written by Sean Cross for Adafruit Industries (www.adafruit.com)
  */
 
-#define RPI_POWER_SWITCH_VERSION "1.1"
+#define RPI_POWER_SWITCH_VERSION "1.4"
 #define POWER_SWITCH_CLASS_NAME "rpi-power-switch"
 
 #include <linux/module.h>
@@ -30,6 +30,10 @@
 #define GPPUD (gpio_reg+0x94)
 #define GPPUDCLK0 (gpio_reg+0x98)
 #define GPPUDCLK1 (gpio_reg+0x9C)
+#define GPSET0    (gpio_reg+0x1c)
+#define GPSET1    (gpio_reg+0x20)
+#define GPCLR0    (gpio_reg+0x28)
+#define GPCLR1    (gpio_reg+0x2c)
 
 #define GPIO_REG(g) (gpio_reg+((g/10)*4))
 #define SET_GPIO_ALT(g,a) \
@@ -54,6 +58,7 @@ enum gpio_pull_direction {
 /* Module Parameters */
 static int gpio_pin = 22;
 static int mode = MODE_SWITCH;
+static int led_pin = 16;
 
 /* This is the base state.  When this changes, do a shutdown. */
 static int gpio_pol;
@@ -61,6 +66,7 @@ static int gpio_pol;
 static void __iomem *gpio_reg;
 static void (*old_pm_power_off)(void);
 static struct device *switch_dev;
+static int raw_gpio = 0;
 
 
 /* Attach either a pull up or pull down to the specified GPIO pin.  Or
@@ -85,6 +91,21 @@ static int set_gpio_pull(int gpio, enum gpio_pull_direction direction) {
 	return 0;
 }
 
+
+/* If the GPIO we want to use is already being used (e.g. if a driver
+ * forgot to call gpio_free() during its module_exit() call), then we
+ * will have to directly access the GPIO registers in order to set or
+ * clear values.
+ */
+static int raw_gpio_set(int gpio, int val) {
+	if (gpio < 0 || gpio > 63)
+		return -1;
+	else if (gpio < 32) 
+		__raw_writel(1<<gpio, val?GPSET0:GPCLR0);
+	else if (gpio < 64)
+		__raw_writel(1<<gpio, val?GPSET1:GPCLR1);
+	return 0;
+}
 
 /* Bottom half of the power switch ISR.
  * We need to break this out here, as you can't run call_usermodehelper
@@ -128,6 +149,75 @@ static irqreturn_t reboot_isr(int irqno, void *param) {
 }
 
 
+
+/* Pulse the GPIO low for /duty/ cycles and then /high/ for 100-duty cycles.
+ * Returns the number of usecs delayed.
+ */
+#define RATE 1
+static int gpio_pulse(int gpio, int duty) {
+	int low;
+	int high;
+
+	if (duty < 0)
+		duty = 0;
+	if (duty > 100)
+		duty = 100;
+	low = duty;
+	high = 100-duty;
+
+	if (raw_gpio)
+		raw_gpio_set(gpio, 0);
+	else
+		gpio_set_value(gpio, 0);
+	udelay(RATE*low);
+
+	if (raw_gpio)
+		raw_gpio_set(gpio, 1);
+	else
+		gpio_set_value(gpio, 1);
+	udelay(RATE*high);
+
+	return (RATE*low)+(RATE*high);
+}
+
+
+
+/* Give an indication that it's safe to turn off the board.  Pulse the LED
+ * in a kind of "breathing" pattern, so the user knows that it's
+ * "powered down".
+ */
+static int do_breathing_forever(int gpio) {
+	int err;
+	err = gpio_request(gpio, "LED light");
+	if (err < 0) {
+		pr_err("Unable to request GPIO, switching to raw access");
+		raw_gpio = 1;
+	}
+
+	while (1) {
+		int usecs;
+		/* We want four seconds:
+		 *   - One second of ramp-up
+		 *   - One second of ramp-down
+		 *   - Two seconds of low
+		 */
+		for (usecs=0; usecs < 800000; )
+			usecs += gpio_pulse(gpio, ((usecs*9)/80000)+10);
+
+		for (usecs=0; usecs < 800000; )
+			usecs += gpio_pulse(gpio, 100-((usecs*9)/80000));
+
+		for (usecs=0; usecs < 800000; )
+			usecs += gpio_pulse(gpio, 10);
+
+		for (usecs=0; usecs < 800000; )
+			usecs += gpio_pulse(gpio, 10);
+	}
+	return 0;
+}
+
+
+
 /* Our shutdown function.  Execution will stay here until the switch is
  * flipped.
  * NOTE: The default power_off function sends a message to the GPU via
@@ -151,8 +241,7 @@ static void rpi_power_switch_power_off(void) {
 	if (gpio_pol == gpio_get_value(gpio_pin))
 		reboot_isr(0, NULL);
 
-	while(1)
-		cpu_relax();
+	do_breathing_forever(led_pin);
 	return;
 }
 
@@ -311,4 +400,5 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Sean Cross <xobs@xoblo.gs> for Adafruit Industries <www.adafruit.com>");
 MODULE_ALIAS("platform:bcm2708_power_switch");
 module_param(gpio_pin, int, 0);
+module_param(led_pin, int, 0);
 module_param(mode, int, 0);
