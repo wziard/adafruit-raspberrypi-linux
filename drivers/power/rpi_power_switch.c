@@ -6,7 +6,7 @@
  * - Written by Sean Cross for Adafruit Industries (www.adafruit.com)
  */
 
-#define RPI_POWER_SWITCH_VERSION "1.4"
+#define RPI_POWER_SWITCH_VERSION "1.7"
 #define POWER_SWITCH_CLASS_NAME "rpi-power-switch"
 
 #include <linux/module.h>
@@ -36,6 +36,16 @@
 #define GPCLR1    (gpio_reg+0x2c)
 
 #define GPIO_REG(g) (gpio_reg+((g/10)*4))
+#define SET_GPIO_OUTPUT(g) \
+	__raw_writel( 							\
+		(1<<(((g)%10)*3))					\
+		| (__raw_readl(GPIO_REG(g)) & (~(7<<(((g)%10)*3)))),	\
+		GPIO_REG(g))
+#define SET_GPIO_INPUT(g) \
+	__raw_writel( 							\
+		0							\
+		| (__raw_readl(GPIO_REG(g)) & (~(7<<(((g)%10)*3)))),	\
+		GPIO_REG(g))
 #define SET_GPIO_ALT(g,a) \
 	__raw_writel( 							\
 		(((a)<=3?(a)+4:(a)==4?3:2)<<(((g)%10)*3))		\
@@ -193,6 +203,7 @@ static int do_breathing_forever(int gpio) {
 		pr_err("Unable to request GPIO, switching to raw access");
 		raw_gpio = 1;
 	}
+	SET_GPIO_OUTPUT(gpio);
 
 	while (1) {
 		int usecs;
@@ -337,7 +348,7 @@ int __init rpi_power_switch_init(void)
 	gpio_reg = ioremap(GPIO_BASE, 1024);
 
 	/* Set the specified pin as a GPIO input */
-	SET_GPIO_ALT(gpio_pin, 0);
+	SET_GPIO_INPUT(gpio_pin);
 
 	/* Set the pin as a pulldown.  Most pins should default to having
 	 * pulldowns, and this seems most intuitive.
