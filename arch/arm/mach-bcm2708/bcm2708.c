@@ -690,6 +690,11 @@ static struct i2c_board_info __initdata snd_pcm512x_i2c_devices[] = {
 };
 #endif
 
+static struct platform_device bcm2708_pwm_device = {
+	.name = "bcm2708_pwm",
+	.id = 0,
+};
+
 int __init bcm_register_device(struct platform_device *pdev)
 {
 	int ret;
@@ -832,6 +837,8 @@ void __init bcm2708_init(void)
 	bcm_register_device_dt(&bcm2708_spi_device);
 	bcm_register_device_dt(&bcm2708_bsc0_device);
 	bcm_register_device_dt(&bcm2708_bsc1_device);
+
+	bcm_register_device(&bcm2708_pwm_device);
 
 	bcm_register_device(&bcm2835_hwmon_device);
 	bcm_register_device(&bcm2835_thermal_device);
