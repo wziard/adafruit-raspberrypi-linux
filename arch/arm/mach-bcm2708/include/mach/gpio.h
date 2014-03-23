@@ -9,8 +9,7 @@
 #ifndef __ASM_ARCH_GPIO_H
 #define __ASM_ARCH_GPIO_H
 
-//#define ARCH_NR_GPIOS 54 // number of gpio lines
-#define ARCH_NR_GPIOS 154 // number of gpio lines (plus 100 extra)
+#define ARCH_NR_GPIOS 54 // number of gpio lines
 
 #define gpio_to_irq(x)	((x) + GPIO_IRQ_START)
 #define irq_to_gpio(x)	((x) - GPIO_IRQ_START)
