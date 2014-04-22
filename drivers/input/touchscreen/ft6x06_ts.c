@@ -262,10 +262,11 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 			     ABS_MT_POSITION_Y, 0, ft6x06_ts->y_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, PRESS_MAX, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, PRESS_MAX, 0, 0);
-	input_set_abs_params(input_dev, ABS_X, 0, ft6x06_ts->x_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, ft6x06_ts->y_max, 0, 0);
 	input_set_abs_params(input_dev,
 			     ABS_MT_TRACKING_ID, 0, CFG_MAX_TOUCH_POINTS, 0, 0);
+	input_set_abs_params(input_dev, ABS_X, 0, ft6x06_ts->x_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_Y, 0, ft6x06_ts->y_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE, 0x0, PRESS_MAX, 0, 0);
 
 	set_bit(EV_KEY, input_dev->evbit);
 	set_bit(EV_ABS, input_dev->evbit);
