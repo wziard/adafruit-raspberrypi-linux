@@ -680,5 +680,5 @@ void __exit rpi_pwm_cleanup(void)
 module_init(rpi_pwm_init);
 module_exit(rpi_pwm_cleanup);
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Sean Cross <xobs@xoblo.gs> for Adafruit Industries <www.adafruit.com>");
+MODULE_AUTHOR("Sean Cross <contact@xobs.io> for Adafruit Industries <www.adafruit.com>");
 MODULE_ALIAS("platform:bcm2708_pwm");

@@ -529,7 +529,7 @@ config SRAM
 
 config RPI_PWM
 	tristate "Raspberry Pi PWM driver"
-	depends on EXPERIMENTAL && MACH_BCM2708
+	depends on MACH_BCM2708
 	default m
 	help
 	 The Raspberry Pi has a single PWM pin broken out on pin 12 of its
