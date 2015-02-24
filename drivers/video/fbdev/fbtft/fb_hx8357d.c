@@ -32,9 +32,41 @@
 #define WIDTH		320
 #define HEIGHT		480
 
+/***************** my sekret register writer @ 8MHz */
+static int slow_write_spi(struct fbtft_par *par, void *buf, size_t len)
+{
+  struct spi_transfer t = {
+    .tx_buf = buf,
+    .len = len,
+    .speed_hz = 8000000,
+  };
+  struct spi_message m;
+
+  fbtft_par_dbg_hex(DEBUG_WRITE, par, par->info->device, u8, buf, len,
+                    "%s(len=%d): ", __func__, len);
+
+  if (!par->spi) {
+    dev_err(par->info->device,
+            "%s: par->spi is unexpectedly NULL\n", __func__);
+    return -1;
+  }
+
+  spi_message_init(&m);
+  if (par->txbuf.dma && buf == par->txbuf.buf) {
+    t.tx_dma = par->txbuf.dma;
+    m.is_dma_mapped = 1;
+  }
+  spi_message_add_tail(&t, &m);
+  return spi_sync(par->spi, &m);
+}
+
+/***************** my sekret register writer @ 8MHz */
 
 static int init_display(struct fbtft_par *par)
 {
+        /* slow down spi-speed for writing registers */
+  	par->fbtftops.write = slow_write_spi;
+
 	fbtft_par_dbg(DEBUG_INIT_DISPLAY, par, "%s()\n", __func__);
 
 	par->fbtftops.reset(par);
@@ -138,11 +170,18 @@ static int init_display(struct fbtft_par *par)
 	write_reg(par, HX8357_DISPON);
 	mdelay(50);
 
+	/* restore user spi-speed */
+        par->fbtftops.write = fbtft_write_spi;
+        udelay(100);
+
 	return 0;
 }
 
 static void set_addr_win(struct fbtft_par *par, int xs, int ys, int xe, int ye)
 {
+        /* slow down spi-speed for writing registers */
+  	par->fbtftops.write = slow_write_spi;
+
 	fbtft_par_dbg(DEBUG_SET_ADDR_WIN, par,
 		"%s(xs=%d, ys=%d, xe=%d, ye=%d)\n", __func__, xs, ys, xe, ye);
 
@@ -158,6 +197,10 @@ static void set_addr_win(struct fbtft_par *par, int xs, int ys, int xe, int ye)
 
 	/* write to RAM */
 	write_reg(par, HX8357_RAMWR);
+
+	/* restore user spi-speed */
+        par->fbtftops.write = fbtft_write_spi;
+        //udelay(100);
 }
 
 #define HX8357D_MADCTL_MY  0x80
