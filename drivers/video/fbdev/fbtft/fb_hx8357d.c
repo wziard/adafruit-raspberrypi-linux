@@ -175,13 +175,13 @@ static int set_var(struct fbtft_par *par)
 
 	switch (par->info->var.rotate) {
 	case 270:
-		val = HX8357D_MADCTL_MV | HX8357D_MADCTL_MX;
+		val = HX8357D_MADCTL_MV | HX8357D_MADCTL_MY;
 		break;
 	case 180:
 		val = 0;
 		break;
 	case 90:
-		val = HX8357D_MADCTL_MV | HX8357D_MADCTL_MY;
+		val = HX8357D_MADCTL_MV | HX8357D_MADCTL_MX;
 		break;
 	default:
 		val = HX8357D_MADCTL_MX | HX8357D_MADCTL_MY;
