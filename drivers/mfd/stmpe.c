@@ -879,6 +879,18 @@ static irqreturn_t stmpe_irq(int irq, void *data)
 		u8 status = isr[i];
 		u8 clear;
 
+		//printk(KERN_ALERT "bank #%d status 0x%x\n", bank, status);
+		//printk(KERN_ALERT "i am so sorry\n");
+		if ((bank == 0) && (status & 0x2)) {
+			// FIFO_TH
+			//printk(KERN_ALERT "hey why not?\n");
+			if (stmpe->stmpe_ts != NULL)
+				stmpe->stmpe_ts_handler(0, stmpe->stmpe_ts);
+			// now clear out the Interrupts
+			stmpe_reg_write(stmpe, 0x0B, 0xFF);
+			//printk(KERN_ALERT "OK?");
+		}
+
 		status &= stmpe->ier[bank];
 		if (!status)
 			continue;
@@ -1260,6 +1272,10 @@ int stmpe_probe(struct stmpe_client_info *ci, enum stmpe_partnum partnum)
 
 	dev_err(stmpe->dev, "failed to add children\n");
 	mfd_remove_devices(stmpe->dev);
+
+
+	// its the worst ever
+	stmpe->stmpe_ts = NULL;
 
 	return ret;
 }

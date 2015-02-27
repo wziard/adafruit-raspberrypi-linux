@@ -107,7 +107,7 @@ static void stmpe_work(struct work_struct *work)
 	if (debug > 1)
 		printk("%s()\n", __func__);
 
-	int_sta = stmpe_reg_read(ts->stmpe, STMPE_REG_INT_STA);
+	int_sta = stmpe_reg_read(ts->stmpe, STMPE_REG_INT_STA+1);
 
 	/*
 	 * touch_det sometimes get desasserted or just get stuck. This appears
@@ -191,6 +191,7 @@ static irqreturn_t stmpe_ts_handler(int irq, void *data)
 	 * This is because stmpe_ts_handler waits for stmpe_work to finish
 	 */
 	if (x && y && z) {
+		// printk(KERN_ALERT "(%d, %d)\n", x, y);
 	       input_report_abs(ts->idev, ABS_X, x);
 	       input_report_abs(ts->idev, ABS_Y, y);
 	       input_report_abs(ts->idev, ABS_PRESSURE, 0xff - z);
@@ -219,6 +220,7 @@ static int stmpe_init_hw(struct stmpe_touch *ts)
 	struct device *dev = ts->dev;
 
 	ret = stmpe_enable(stmpe, STMPE_BLOCK_TOUCHSCREEN | STMPE_BLOCK_ADC);
+
 	if (ret) {
 		dev_err(dev, "Could not enable clock for ADC and TS\n");
 		return ret;
@@ -378,9 +380,14 @@ static int stmpe_input_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&ts->work, stmpe_work);
 
+	//printk(KERN_ALERT "devm_req_irq(%p, %d, 0x%x, %p, 0x%x, 0x%x, %p)\n",&pdev->dev, ts_irq, NULL, stmpe_ts_handler, IRQF_ONESHOT, STMPE_TS_NAME, ts);
+
 	error = devm_request_threaded_irq(&pdev->dev, ts_irq,
 					  NULL, stmpe_ts_handler,
 					  IRQF_ONESHOT, STMPE_TS_NAME, ts);
+
+	//printk(KERN_ALERT "IRQ %d requested", ts_irq);
+
 	if (error) {
 		dev_err(&pdev->dev, "Failed to request IRQ %d\n", ts_irq);
 		return error;
@@ -389,6 +396,23 @@ static int stmpe_input_probe(struct platform_device *pdev)
 	error = stmpe_init_hw(ts);
 	if (error)
 		return error;
+
+
+        // clear out INTs!
+	error = stmpe_reg_write(ts->stmpe, STMPE_REG_INT_STA, 0xFF);
+        if (error) {
+                dev_err(&pdev->dev, "Could not set INT_STA\n");
+                return error;
+        }
+
+	// enable interrupt
+        error = stmpe_reg_write(ts->stmpe, 0x0A, 0x03);
+        if (error) {
+                dev_err(&pdev->dev, "Could not set INT_EN\n");
+                return error;
+        }
+	ts->stmpe->stmpe_ts = ts; // oi vey, let STMPE know about the touchscreen
+	ts->stmpe->stmpe_ts_handler = &stmpe_ts_handler;
 
 	idev->name = STMPE_TS_NAME;
 	idev->phys = STMPE_TS_NAME"/input0";
