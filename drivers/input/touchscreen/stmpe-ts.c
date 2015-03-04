@@ -11,6 +11,9 @@
  *
  */
 
+#define DEBUG
+#define VERBOSE_DEBUG
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/sched.h>
@@ -107,7 +110,9 @@ static void stmpe_work(struct work_struct *work)
 	if (debug > 1)
 		printk("%s()\n", __func__);
 
-	int_sta = stmpe_reg_read(ts->stmpe, STMPE_REG_INT_STA);
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
+	int_sta = stmpe_reg_read(ts->stmpe, STMPE_REG_INT_STA+1);
 
 	/*
 	 * touch_det sometimes get desasserted or just get stuck. This appears
@@ -191,6 +196,7 @@ static irqreturn_t stmpe_ts_handler(int irq, void *data)
 	 * This is because stmpe_ts_handler waits for stmpe_work to finish
 	 */
 	if (x && y && z) {
+		printk(KERN_ALERT "(%d, %d)\n", x, y);
 	       input_report_abs(ts->idev, ABS_X, x);
 	       input_report_abs(ts->idev, ABS_Y, y);
 	       input_report_abs(ts->idev, ABS_PRESSURE, 0xff - z);
@@ -219,10 +225,15 @@ static int stmpe_init_hw(struct stmpe_touch *ts)
 	struct device *dev = ts->dev;
 
 	ret = stmpe_enable(stmpe, STMPE_BLOCK_TOUCHSCREEN | STMPE_BLOCK_ADC);
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
 	if (ret) {
 		dev_err(dev, "Could not enable clock for ADC and TS\n");
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
 		return ret;
 	}
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 
 	adc_ctrl1 = SAMPLE_TIME(ts->sample_time) | MOD_12B(ts->mod_12b) |
 		REF_SEL(ts->ref_sel);
@@ -234,6 +245,9 @@ static int stmpe_init_hw(struct stmpe_touch *ts)
 		dev_err(dev, "Could not setup ADC\n");
 		return ret;
 	}
+
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
 
 	ret = stmpe_set_bits(stmpe, STMPE_REG_ADC_CTRL2,
 			ADC_FREQ(0xff), ADC_FREQ(ts->adc_freq));
@@ -280,6 +294,8 @@ static int stmpe_init_hw(struct stmpe_touch *ts)
 		return ret;
 	}
 
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
 	return 0;
 }
 
@@ -292,6 +308,8 @@ static int stmpe_ts_open(struct input_dev *dev)
 	if (ret)
 		return ret;
 
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
 	return stmpe_set_bits(ts->stmpe, STMPE_REG_TSC_CTRL,
 			STMPE_TSC_CTRL_TSC_EN, STMPE_TSC_CTRL_TSC_EN);
 }
@@ -301,6 +319,8 @@ static void stmpe_ts_close(struct input_dev *dev)
 	struct stmpe_touch *ts = input_get_drvdata(dev);
 
 	cancel_delayed_work_sync(&ts->work);
+
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 
 	stmpe_set_bits(ts->stmpe, STMPE_REG_TSC_CTRL,
 			STMPE_TSC_CTRL_TSC_EN, 0);
@@ -349,6 +369,7 @@ static void stmpe_ts_get_platform_info(struct platform_device *pdev,
 		if (!of_property_read_u32(np, "st,i-drive", &val))
 			ts->i_drive = val;
 	}
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 }
 
 static int stmpe_input_probe(struct platform_device *pdev)
@@ -358,29 +379,49 @@ static int stmpe_input_probe(struct platform_device *pdev)
 	int error;
 	int ts_irq;
 
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
 	ts_irq = platform_get_irq_byname(pdev, "FIFO_TH");
 	if (ts_irq < 0)
 		return ts_irq;
+
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 
 	ts = devm_kzalloc(&pdev->dev, sizeof(*ts), GFP_KERNEL);
 	if (!ts)
 		return -ENOMEM;
 
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
 	idev = devm_input_allocate_device(&pdev->dev);
 	if (!idev)
 		return -ENOMEM;
+
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 
 	platform_set_drvdata(pdev, ts);
 	ts->idev = idev;
 	ts->dev = &pdev->dev;
 
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
 	stmpe_ts_get_platform_info(pdev, ts);
 
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
 	INIT_DELAYED_WORK(&ts->work, stmpe_work);
+
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
+printk(KERN_ALERT "devm_req_irq(%p, %d, 0x%x, %p, 0x%x, 0x%x, %p)\n",
+&pdev->dev, ts_irq, NULL, stmpe_ts_handler, IRQF_ONESHOT, STMPE_TS_NAME, ts);
 
 	error = devm_request_threaded_irq(&pdev->dev, ts_irq,
 					  NULL, stmpe_ts_handler,
 					  IRQF_ONESHOT, STMPE_TS_NAME, ts);
+
+	printk(KERN_ALERT "IRQ %d requested", ts_irq);
+
 	if (error) {
 		dev_err(&pdev->dev, "Failed to request IRQ %d\n", ts_irq);
 		return error;
@@ -389,6 +430,16 @@ static int stmpe_input_probe(struct platform_device *pdev)
 	error = stmpe_init_hw(ts);
 	if (error)
 		return error;
+
+
+	printk(KERN_ALERT "fuck it\n");
+        error = stmpe_reg_write(ts->stmpe, 0x0A, 0x03);
+        if (error) {
+                dev_err(&pdev->dev, "Could not set INTEN\n");
+                return error;
+        }
+	ts->stmpe->stmpe_ts = ts; // oi vey, let STMPE know about the touchscreen
+	ts->stmpe->stmpe_ts_handler = &stmpe_ts_handler;
 
 	idev->name = STMPE_TS_NAME;
 	idev->phys = STMPE_TS_NAME"/input0";
@@ -412,6 +463,8 @@ static int stmpe_input_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Could not register input device\n");
 		return error;
 	}
+
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 
 	return 0;
 }

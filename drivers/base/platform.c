@@ -143,13 +143,15 @@ int platform_get_irq_byname(struct platform_device *dev, const char *name)
 
 	if (IS_ENABLED(CONFIG_OF_IRQ) && dev->dev.of_node) {
 		int ret;
-
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 		ret = of_irq_get_byname(dev->dev.of_node, name);
 		if (ret >= 0 || ret == -EPROBE_DEFER)
 			return ret;
 	}
 
 	r = platform_get_resource_byname(dev, IORESOURCE_IRQ, name);
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+printk(KERN_ALERT "start irq %d\n", r->start);
 	return r ? r->start : -ENXIO;
 }
 EXPORT_SYMBOL_GPL(platform_get_irq_byname);

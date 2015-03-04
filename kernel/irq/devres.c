@@ -57,12 +57,14 @@ int devm_request_threaded_irq(struct device *dev, unsigned int irq,
 	if (!dr)
 		return -ENOMEM;
 
+	printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 	rc = request_threaded_irq(irq, handler, thread_fn, irqflags, devname,
 				  dev_id);
 	if (rc) {
 		devres_free(dr);
 		return rc;
 	}
+	printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 
 	dr->irq = irq;
 	dr->dev_id = dev_id;

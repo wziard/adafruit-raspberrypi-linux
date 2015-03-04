@@ -99,6 +99,9 @@ struct stmpe {
 	u8 ier[2];
 	u8 oldier[2];
 	struct stmpe_platform_data *pdata;
+
+	irqreturn_t (*stmpe_ts_handler)(int, void *);
+	void *stmpe_ts;    // pointer to the touchscreen
 };
 
 extern int stmpe_reg_write(struct stmpe *stmpe, u8 reg, u8 data);

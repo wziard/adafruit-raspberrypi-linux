@@ -7,6 +7,10 @@
  * Author: Rabin Vincent <rabin.vincent@stericsson.com> for ST-Ericsson
  */
 
+#define DEBUG 1
+#define VERBOSE_DEBUG 1
+
+
 #include <linux/err.h>
 #include <linux/gpio.h>
 #include <linux/export.h>
@@ -83,6 +87,7 @@ static int __stmpe_block_read(struct stmpe *stmpe, u8 reg, u8 length,
 		dev_err(stmpe->dev, "failed to read regs %#x: %d\n", reg, ret);
 
 	dev_vdbg(stmpe->dev, "rd: reg %#x (%d) => ret %#x\n", reg, length, ret);
+printk(KERN_ALERT "val 0 = %d\n", values[0]);
 	stmpe_dump_bytes("stmpe rd: ", values, length);
 
 	return ret;
@@ -879,6 +884,16 @@ static irqreturn_t stmpe_irq(int irq, void *data)
 		u8 status = isr[i];
 		u8 clear;
 
+		printk(KERN_ALERT "bank #%d status 0x%x\n", bank, status);
+		//printk(KERN_ALERT "i am so sorry\n");
+		if ((bank == 0) && (status & 0x2)) {
+			// FIFO_TH
+			//printk(KERN_ALERT "hey why not?\n");
+			if (stmpe->stmpe_ts != NULL)
+				stmpe->stmpe_ts_handler(0, stmpe->stmpe_ts);
+			//printk(KERN_ALERT "OK?");
+		}
+
 		status &= stmpe->ier[bank];
 		if (!status)
 			continue;
@@ -913,6 +928,7 @@ static void stmpe_irq_sync_unlock(struct irq_data *data)
 	int num = DIV_ROUND_UP(variant->num_irqs, 8);
 	int i;
 
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 	for (i = 0; i < num; i++) {
 		u8 new = stmpe->ier[i];
 		u8 old = stmpe->oldier[i];
@@ -1095,8 +1111,10 @@ static int stmpe_devices_init(struct stmpe *stmpe)
 				(struct resource *) &block->cell->resources[j];
 
 			/* Dynamically fill in a variant's IRQ. */
-			if (res->flags & IORESOURCE_IRQ)
+			if (res->flags & IORESOURCE_IRQ) {
 				res->start = res->end = block->irq + j;
+	printk(KERN_ALERT "IoR %s irqstart = %d\n", res->name, res->start);
+}
 		}
 
 		platform_blocks &= ~block->block;
@@ -1260,6 +1278,10 @@ int stmpe_probe(struct stmpe_client_info *ci, enum stmpe_partnum partnum)
 
 	dev_err(stmpe->dev, "failed to add children\n");
 	mfd_remove_devices(stmpe->dev);
+
+
+	// its the worst ever
+	stmpe->stmpe_ts = NULL;
 
 	return ret;
 }

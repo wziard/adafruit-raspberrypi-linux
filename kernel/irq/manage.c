@@ -1470,6 +1470,7 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 	 * which interrupt is which (messes up the interrupt freeing
 	 * logic etc).
 	 */
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 	if ((irqflags & IRQF_SHARED) && !dev_id)
 		return -EINVAL;
 
@@ -1480,6 +1481,7 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 	if (!irq_settings_can_request(desc) ||
 	    WARN_ON(irq_settings_is_per_cpu_devid(desc)))
 		return -EINVAL;
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 
 	if (!handler) {
 		if (!thread_fn)
@@ -1491,16 +1493,22 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 	if (!action)
 		return -ENOMEM;
 
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 	action->handler = handler;
 	action->thread_fn = thread_fn;
 	action->flags = irqflags;
 	action->name = devname;
 	action->dev_id = dev_id;
-
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 	chip_bus_lock(desc);
+printk(KERN_ALERT "Lock %p %s\n", desc->irq_data.chip, desc->irq_data.chip->name);
 	retval = __setup_irq(irq, desc, action);
-	chip_bus_sync_unlock(desc);
 
+printk(KERN_ALERT "Setup_irq (%d, %p, %p) -> %d\n", irq, desc, action, retval);
+
+	chip_bus_sync_unlock(desc);
+printk(KERN_ALERT "Unlock %p %s\n", desc->irq_data.chip, desc->irq_data.chip->name);
+printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
 	if (retval)
 		kfree(action);
 
