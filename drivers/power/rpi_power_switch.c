@@ -36,6 +36,8 @@
 #include <linux/platform_device.h>
 #include <linux/init.h>
 #include <linux/workqueue.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 
 /* the BCM2709 redefines this for us right!
 #define BCM2708_PERI_BASE	0x20000000
@@ -67,6 +69,20 @@
 		| (__raw_readl(GPIO_REG(g)) & (~(7<<(((g)%10)*3)))),	\
 		GPIO_REG(g))
 
+static const struct of_device_id gpiopowerswitch_rpi_of_match[] = {
+	{ .compatible = "rpi,gpiopowerswitch-rpi", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, gpiopowerswitch_rpi_of_match);
+
+static struct platform_driver gpiopowerswitch_rpi_driver = {
+	.driver = {
+		.name   = rpi_power_switch,
+		.owner  = THIS_MODULE,
+		.of_match_table = of_match_ptr(gpiopowerswitch_rpi_of_match),
+	},
+};
+
 enum button_mode {
 	MODE_BUTTON = 0,
 	MODE_SWITCH = 1,
@@ -90,30 +106,6 @@ static void __iomem *gpio_reg;
 static void (*old_pm_power_off)(void);
 static struct device *switch_dev;
 static int raw_gpio = 0;
-
-/*
- * Attach either a pull up or pull down to the specified GPIO pin.  Or
- * clear any pull on the pin, if requested.
- */
-static int set_gpio_pull(int gpio, enum gpio_pull_direction direction)
-{
-	long *bank;
-	int pin;
-
-	bank = ((gpio&(~31))?GPPUDCLK1:GPPUDCLK0);
-	pin = gpio & 31;
-
-	/* Set the direction (involves two writes and a clock wait) */
-	__raw_writel(direction, GPPUD);
-	udelay(20);
-	__raw_writel(1<<pin, bank);
-	udelay(20);
-
-	/* Cleanup */
-	__raw_writel(0, GPPUD);
-	__raw_writel(0, bank);
-	return 0;
-}
 
 /*
  * If the GPIO we want to use is already being used (e.g. if a driver
@@ -366,11 +358,8 @@ int __init rpi_power_switch_init(void)
 	/* Set the specified pin as a GPIO input */
 	SET_GPIO_INPUT(gpio_pin);
 
-	/*
-	 * Set the pin as a pulldown.  Most pins should default to having
-	 * pulldowns, and this seems most intuitive.
-	 */
-	set_gpio_pull(gpio_pin, GPIO_PULL_UP);
+	/* XXX: Here we previously set the pin as a pulldown using 
+	   set_gpio_pull(gpio_pin, GPIO_PULL_UP);  -- bpb */
 
 	ret = gpio_request(gpio_pin, "Power switch");
 	if (ret) {
