@@ -22,7 +22,6 @@
 #include <linux/platform_device.h>
 #include <linux/init.h>
 #include <linux/workqueue.h>
-#include <mach/platform.h>
 
 
 /* the BCM2709 redefines this for us right!
