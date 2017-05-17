@@ -24,10 +24,13 @@
 #include <linux/workqueue.h>
 
 
-/* the BCM2709 redefines this for us right!
-#define BCM2708_PERI_BASE	0x20000000
-*/
-#define GPIO_BASE		(BCM2708_PERI_BASE + 0x200000)
+#ifdef RPI2
+#define PERI_BASE        0x3F000000
+#else
+#define PERI_BASE        0x20000000
+#endif
+
+#define GPIO_BASE		(PERI_BASE + 0x200000)
 
 #define GPPUD (gpio_reg+0x94)
 #define GPPUDCLK0 (gpio_reg+0x98)
