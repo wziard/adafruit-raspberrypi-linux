@@ -127,6 +127,9 @@ static int init_display(struct fbtft_par *par)
 	/* tear line */
 	write_reg(par, MIPI_DCS_SET_TEAR_SCANLINE, 0x00, 0x02);
 
+	/* set scrolling are to whole screen*/
+	write_reg(par, HX8357D_VSCRDEF, 0x00, 0x00, 0x1, 0xE0, 0x00, 0x00);
+
 	/* Exit Sleep */
 	write_reg(par, MIPI_DCS_EXIT_SLEEP_MODE);
 	msleep(150);
@@ -182,7 +185,14 @@ static int set_var(struct fbtft_par *par)
 	/* Memory Access Control */
 	write_reg(par, MIPI_DCS_SET_ADDRESS_MODE, val);
 
+	write_reg(par, HX8357D_VSCRADD, ((par->scroll_pos) >> 8) & 0xFF, (par->scroll_pos) & 0xFF);
+
 	return 0;
+}
+
+static void set_scroll(struct fbtft_par *par)
+{
+	write_reg(par, HX8357D_VSCRADD, ((par->scroll_pos) >> 8) & 0xFF, (par->scroll_pos) & 0xFF);
 }
 
 static struct fbtft_display display = {
@@ -195,6 +205,7 @@ static struct fbtft_display display = {
 		.init_display = init_display,
 		.set_addr_win = set_addr_win,
 		.set_var = set_var,
+		.set_scroll = set_scroll,
 	},
 };
 
