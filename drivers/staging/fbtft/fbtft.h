@@ -93,6 +93,7 @@ struct fbtft_ops {
 
 	int (*set_var)(struct fbtft_par *par);
 	int (*set_gamma)(struct fbtft_par *par, unsigned long *curves);
+	void (*set_scroll)(struct fbtft_par *par);
 };
 
 /**
@@ -240,6 +241,7 @@ struct fbtft_par {
 	bool first_update_done;
 	ktime_t update_time;
 	bool bgr;
+	unsigned long scroll_pos;
 	void *extra;
 };
 

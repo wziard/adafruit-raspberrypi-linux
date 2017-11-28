@@ -204,9 +204,46 @@ static ssize_t show_debug(struct device *device,
 static struct device_attribute debug_device_attr = \
 	__ATTR(debug, 0660, show_debug, store_debug);
 
+
+
+static ssize_t store_scroll(struct device *device,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct fb_info *fb_info = dev_get_drvdata(device);
+	struct fbtft_par *par = fb_info->par;
+	int ret;
+
+	ret = kstrtoul(buf, 10, &par->scroll_pos);
+
+	if (ret)
+		return ret;
+
+	if (par->fbtftops.set_scroll)
+		par->fbtftops.set_scroll(par);
+
+
+	return count;
+}
+
+static ssize_t show_scroll(struct device *device,
+				struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fb_info = dev_get_drvdata(device);
+	struct fbtft_par *par = fb_info->par;
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", par->scroll_pos);
+}
+
+static struct device_attribute scroll_pos_device_attr = \
+	__ATTR(scroll_pos, 0660, show_scroll, store_scroll);
+
+
 void fbtft_sysfs_init(struct fbtft_par *par)
 {
 	device_create_file(par->info->dev, &debug_device_attr);
+	if (par->fbtftops.set_scroll)
+		device_create_file(par->info->dev, &scroll_pos_device_attr);
 	if (par->gamma.curves && par->fbtftops.set_gamma)
 		device_create_file(par->info->dev, &gamma_device_attrs[0]);
 }
@@ -214,6 +251,8 @@ void fbtft_sysfs_init(struct fbtft_par *par)
 void fbtft_sysfs_exit(struct fbtft_par *par)
 {
 	device_remove_file(par->info->dev, &debug_device_attr);
+	if (par->fbtftops.set_scroll)
+		device_remove_file(par->info->dev, &scroll_pos_device_attr);
 	if (par->gamma.curves && par->fbtftops.set_gamma)
 		device_remove_file(par->info->dev, &gamma_device_attrs[0]);
 }

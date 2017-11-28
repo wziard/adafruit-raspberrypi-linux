@@ -623,6 +623,9 @@ static void fbtft_merge_fbtftops(struct fbtft_ops *dst, struct fbtft_ops *src)
 		dst->set_var = src->set_var;
 	if (src->set_gamma)
 		dst->set_gamma = src->set_gamma;
+	if (src->set_scroll)
+		dst->set_scroll = src->set_scroll;
+
 }
 
 /**
