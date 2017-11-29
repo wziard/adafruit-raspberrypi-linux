@@ -358,6 +358,11 @@ static void fbtft_update_display(struct fbtft_par *par, unsigned int start_line,
 		}
 	}
 
+	if (par->fbtftops.set_scroll)
+	{
+		par->fbtftops.set_scroll(par);
+	}
+
 	/* Sanity checks */
 	if (start_line > end_line) {
 		dev_warn(par->info->device,

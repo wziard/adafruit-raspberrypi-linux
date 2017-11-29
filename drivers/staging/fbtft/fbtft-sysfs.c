@@ -219,8 +219,8 @@ static ssize_t store_scroll(struct device *device,
 	if (ret)
 		return ret;
 
-	if (par->fbtftops.set_scroll)
-		par->fbtftops.set_scroll(par);
+//	if (par->fbtftops.set_scroll)
+//		par->fbtftops.set_scroll(par);
 
 
 	return count;
